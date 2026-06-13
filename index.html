@@ -502,12 +502,14 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   /* meta week: 4 colunas */
   .meta-week{grid-template-columns:repeat(4,1fr);}
 
-  /* cronograma: scroll horizontal */
+  /* cronograma: oculta grade, mostra cards por turno */
   #tab-cronograma .card{overflow-x:auto;}
   .crono-grid{
     grid-template-columns:56px repeat(7,76px);
     min-width:590px;
   }
+  .crono-mobile-view{display:block !important;}
+  .crono-desktop-view{display:none !important;}
   /* painel: colunas viram linha */
   #painel-dual-grid{grid-template-columns:1fr !important;}
 
@@ -570,6 +572,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     </nav>
 
     <div class="sidebar-footer">
+      <div onclick="abrirPerfil()" style="
+        display:flex;align-items:center;gap:8px;cursor:pointer;
+        padding:8px 10px;border-radius:8px;margin-bottom:10px;
+        border:1px solid var(--border);transition:background .15s;
+      " onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <span style="font-size:16px">🎯</span>
+        <span id="perfil-label" style="font-size:12px;color:var(--text3);font-weight:600;flex:1;line-height:1.3;">Definir concurso alvo</span>
+        <span style="font-size:11px;color:var(--text3)">✏️</span>
+      </div>
       <div class="prog-global-label">
         <span>Progresso geral</span>
         <span id="pct-global" style="font-weight:700;color:var(--accent)">0%</span>
@@ -586,7 +597,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <!-- TOPBAR -->
     <div class="topbar">
       <div>
-        <div class="topbar-title" id="topbar-title">Painel</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="topbar-title" id="topbar-title">Painel</div>
+        </div>
         <div class="topbar-date" id="topbar-date"></div>
       </div>
       <div class="topbar-right">
@@ -608,6 +621,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
       <!-- PAINEL -->
       <div class="tab-pane active" id="tab-painel">
+        <div id="edital-banner" style="display:none;
+          background:var(--accent-dim);border:1px solid rgba(0,214,143,.2);
+          border-radius:10px;padding:10px 16px;margin-bottom:14px;
+          display:flex;align-items:center;gap:10px;cursor:pointer;
+        " onclick="abrirPerfil()">
+          <span style="font-size:16px">🎯</span>
+          <span id="edital-banner-txt" style="font-size:13px;font-weight:700;color:var(--accent);flex:1;"></span>
+          <span style="font-size:11px;color:var(--accent)">✏️</span>
+        </div>
         <div class="stats-grid">
           <div class="stat-card accent-card">
             <div class="s-label">Progresso total</div>
@@ -768,13 +790,109 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         <span class="bn-icon">🎯</span>
         <span>Simulados</span>
       </button>
-      <button class="bn-item" onclick="showTab('metas',this)" data-tab="metas">
-        <span class="bn-icon">⚡</span>
-        <span>Metas</span>
+      <button class="bn-item" onclick="showTab('revisao',this)" data-tab="revisao">
+        <span class="bn-icon">🔁</span>
+        <span>Revisão</span>
+        <span class="bn-badge" id="bn-badge-rev" style="display:none;background:var(--red)">0</span>
+      </button>
+      <button class="bn-item" onclick="toggleDrawer()" id="bn-mais">
+        <span class="bn-icon">⋯</span>
+        <span>Mais</span>
       </button>
     </div>
   </nav>
 
+  <!-- DRAWER mobile para abas extras -->
+  <div id="mob-drawer" style="
+    display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
+    background:var(--bg2);border-top:1px solid var(--border2);
+    border-radius:20px 20px 0 0;padding:12px 0 calc(env(safe-area-inset-bottom) + 12px);
+  ">
+    <div style="width:36px;height:4px;background:var(--border2);border-radius:100px;margin:0 auto 16px;"></div>
+    <div onclick="closeDrawer();showTab('metas',document.querySelector('[data-tab=metas]'))" style="
+      display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;
+    " onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <span style="font-size:22px">⚡</span>
+      <div><div style="font-size:14px;font-weight:600;">Metas</div><div style="font-size:12px;color:var(--text3)">Horas de estudo por dia</div></div>
+    </div>
+    <div onclick="closeDrawer();showTab('cronograma',document.querySelector('[data-tab=cronograma]'))" style="
+      display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;
+    " onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <span style="font-size:22px">📅</span>
+      <div><div style="font-size:14px;font-weight:600;">Cronograma</div><div style="font-size:12px;color:var(--text3)">Planejamento semanal</div></div>
+    </div>
+    <div onclick="exportBackup()" style="
+      display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;
+    " onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <span style="font-size:22px">💾</span>
+      <div><div style="font-size:14px;font-weight:600;">Exportar backup</div><div style="font-size:12px;color:var(--text3)">Salve seu progresso em arquivo</div></div>
+    </div>
+    <div onclick="document.getElementById('inp-import').click();closeDrawer()" style="
+      display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;
+    " onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      <span style="font-size:22px">📂</span>
+      <div><div style="font-size:14px;font-weight:600;">Importar backup</div><div style="font-size:12px;color:var(--text3)">Restaurar progresso salvo</div></div>
+    </div>
+    <input type="file" id="inp-import" accept=".json" style="display:none" onchange="importBackup(this)">
+  </div>
+  <div id="mob-drawer-overlay" onclick="closeDrawer()" style="
+    display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.5);
+  "></div>
+
+
+  <!-- ONBOARDING -->
+  <div id="onboarding" style="
+    display:none;position:fixed;inset:0;z-index:300;
+    background:rgba(0,0,0,.85);backdrop-filter:blur(8px);
+    display:flex;align-items:flex-end;justify-content:center;
+    padding-bottom:env(safe-area-inset-bottom);
+  ">
+    <div style="
+      background:var(--bg2);border:1px solid var(--border2);
+      border-radius:24px 24px 0 0;padding:28px 24px 32px;
+      max-width:480px;width:100%;
+    ">
+      <div style="text-align:center;margin-bottom:24px;">
+        <div style="font-size:48px;margin-bottom:12px;">📋</div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:8px;">Bem-vindo ao Checklist!</div>
+        <div style="font-size:14px;color:var(--text2);line-height:1.6;">Sua ferramenta de estudos para concursos. Veja como começar em 3 passos.</div>
+      </div>
+      <div id="ob-steps">
+        <!-- step 1 -->
+        <div class="ob-step active" id="ob-1">
+          <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:20px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-dim);border:1px solid rgba(0,214,143,.3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">1</div>
+            <div>
+              <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Abra a aba Matérias</div>
+              <div style="font-size:13px;color:var(--text2);line-height:1.5;">Marque os tópicos que você já estudou. O progresso aparece automaticamente no Painel.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:20px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--amber-dim);border:1px solid rgba(240,180,41,.3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">2</div>
+            <div>
+              <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Selecione o que estudar hoje</div>
+              <div style="font-size:13px;color:var(--text2);line-height:1.5;">No Painel, escolha as matérias do dia. Marque conforme for estudando e veja a barra encher.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:28px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--blue-dim);border:1px solid rgba(99,179,237,.3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">3</div>
+            <div>
+              <div style="font-size:15px;font-weight:700;margin-bottom:4px;">Registre seus simulados</div>
+              <div style="font-size:13px;color:var(--text2);line-height:1.5;">Após cada prova, anote seus acertos. O app calcula sua média e mostra sua evolução.</div>
+            </div>
+          </div>
+          <div style="background:var(--accent-dim);border:1px solid rgba(0,214,143,.2);border-radius:10px;padding:12px 14px;margin-bottom:24px;display:flex;gap:10px;align-items:center;">
+            <span style="font-size:18px">💡</span>
+            <span style="font-size:12px;color:var(--accent);line-height:1.5;"><strong>Dica:</strong> Exporte seu backup regularmente (menu ⋯) para não perder seu progresso ao trocar de celular.</span>
+          </div>
+          <button onclick="fecharOnboarding()" style="
+            width:100%;background:var(--accent);color:#000;font-weight:800;font-size:16px;
+            padding:16px;border-radius:11px;border:none;cursor:pointer;font-family:inherit;
+          ">Começar agora →</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div><!-- /shell -->
 
 <script>
@@ -813,6 +931,7 @@ try{ S = {...S, ...JSON.parse(localStorage.getItem('cc_v2')||'{}')}; }catch(e){}
 if(!S.customTopicos) S.customTopicos={};
 if(!S.customAreas)   S.customAreas=[];
 if(!S.revisoes)      S.revisoes={};
+if(S.firstTime===undefined) S.firstTime=true;
 const save = () => localStorage.setItem('cc_v2', JSON.stringify(S));
 
 // Retorna lista completa de areas (base + custom)
@@ -1065,6 +1184,8 @@ function updateAll(){
 
   renderHoje();
   updateRevisaoBadgePainel();
+  updateRevBadge();
+  updatePerfil();
 }
 
 function updateRevisaoBadgePainel(){
@@ -1181,7 +1302,7 @@ function editCrono(key){
   const novo=prompt('Matéria (deixe vazio para limpar):',val);
   if(novo===null)return;
   S.crono[key]=novo.trim();
-  save(); renderCrono();
+  save(); renderCrono(); renderCronoMobile();
 }
 
 // ── SIMULADOS ──────────────────────────────────────
@@ -1417,11 +1538,190 @@ function toggleDone(k){
   save(); renderMetas();
 }
 
+// ── CRONOGRAMA MOBILE ──────────────────────────────
+function renderCronoMobile(){
+  const el = document.getElementById('crono-mobile');
+  if(!el) return;
+  const hoje = new Date().getDay(); // 0=dom
+  const map = [6,0,1,2,3,4,5];
+  el.innerHTML = DIAS_ABREV.map((dia, di) => {
+    const isHoje = map[hoje] === di;
+    const turnos = TURNOS.map(turno => {
+      const key = dia+'_'+turno;
+      const val = S.crono[key] || '';
+      return `<div onclick="editCrono('${key}')" style="
+        display:flex;align-items:center;gap:10px;
+        padding:10px 14px;cursor:pointer;
+        border-bottom:1px solid var(--border);
+        transition:background .15s;
+      " onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''">
+        <span style="font-size:11px;font-weight:700;color:var(--text3);min-width:42px;text-transform:uppercase;">${turno}</span>
+        <span style="flex:1;font-size:13px;${val?'color:var(--accent);font-weight:600;':'color:var(--text3);'}">${val||'Toque para adicionar...'}</span>
+        <span style="font-size:14px;color:var(--text3);">${val?'✏️':'+'}</span>
+      </div>`;
+    }).join('');
+    return `<div style="
+      background:var(--bg2);border:1px solid ${isHoje?'var(--accent)':'var(--border)'};
+      border-radius:12px;margin-bottom:10px;overflow:hidden;
+    ">
+      <div style="
+        padding:10px 14px;background:${isHoje?'var(--accent-dim)':'var(--bg3)'};
+        display:flex;align-items:center;gap:8px;
+        border-bottom:1px solid var(--border);
+      ">
+        <span style="font-size:13px;font-weight:800;color:${isHoje?'var(--accent)':'var(--text)'};">${DIAS_FULL[di]}</span>
+        ${isHoje?'<span style="font-size:10px;font-weight:700;background:var(--accent);color:#000;padding:2px 8px;border-radius:100px;">HOJE</span>':''}
+      </div>
+      ${turnos}
+    </div>`;
+  }).join('');
+}
+
+// ── BACKUP ─────────────────────────────────────────
+function exportBackup(){
+  const data = JSON.stringify(S, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `concurseiro-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importBackup(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if(typeof data !== 'object' || !data.check) throw new Error('Arquivo inválido');
+      if(!confirm('Isso vai substituir todo o seu progresso atual. Continuar?')) return;
+      Object.assign(S, data);
+      save();
+      location.reload();
+    } catch(err) {
+      alert('Arquivo de backup inválido.');
+    }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+// ── DRAWER MOBILE ──────────────────────────────────
+function toggleDrawer(){
+  const d = document.getElementById('mob-drawer');
+  const o = document.getElementById('mob-drawer-overlay');
+  const open = d.style.display !== 'none' && d.style.display !== '';
+  d.style.display = open ? 'none' : 'block';
+  o.style.display = open ? 'none' : 'block';
+}
+function closeDrawer(){
+  document.getElementById('mob-drawer').style.display='none';
+  document.getElementById('mob-drawer-overlay').style.display='none';
+}
+
+// ── ONBOARDING ─────────────────────────────────────
+function fecharOnboarding(){
+  document.getElementById('onboarding').style.display='none';
+  S.firstTime = false;
+  save();
+}
+function checkOnboarding(){
+  if(S.firstTime){
+    document.getElementById('onboarding').style.display='flex';
+  }
+}
+
+// ── NOTIFICAÇÃO / LEMBRETE ─────────────────────────
+function pedirNotificacoes(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){
+    agendarNotificacao();
+  } else if(Notification.permission !== 'denied'){
+    Notification.requestPermission().then(p => {
+      if(p === 'granted') agendarNotificacao();
+    });
+  }
+}
+
+function agendarNotificacao(){
+  // Verifica revisões pendentes e dispara notificação imediata se houver
+  const hoje = new Date().toISOString().slice(0,10);
+  const pendentes = Object.entries(S.revisoes||{})
+    .filter(([k,v]) => v.proxima && v.proxima <= hoje && v.ciclo < CICLOS_DIAS.length).length;
+  if(pendentes > 0 && Notification.permission === 'granted'){
+    new Notification('📋 Concurseiro Aprovado', {
+      body: `Você tem ${pendentes} revisão(ões) pendente(s) hoje!`,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+    });
+  }
+}
+
+// badge revisão no bottom nav
+function updateRevBadge(){
+  const hoje = new Date().toISOString().slice(0,10);
+  const pendentes = Object.entries(S.revisoes||{})
+    .filter(([k,v]) => v.proxima && v.proxima <= hoje && v.ciclo < CICLOS_DIAS.length).length;
+  const badge = document.getElementById('bn-badge-rev');
+  if(badge){
+    badge.textContent = pendentes;
+    badge.style.display = pendentes > 0 ? 'block' : 'none';
+  }
+}
+
+// ── TÓPICOS COM CONTEXTO DE EDITAL ─────────────────
+// Campo de edital no perfil do aluno
+function abrirPerfil(){
+  const edital = S.edital || '';
+  const nome = S.nomeAluno || '';
+  const n = prompt('Seu nome (aparece no app):', nome);
+  if(n === null) return;
+  S.nomeAluno = n.trim();
+  const e = prompt('Concurso alvo (ex: PC/SC 2025):', edital);
+  if(e !== null) S.edital = e.trim();
+  save();
+  updatePerfil();
+}
+function updatePerfil(){
+  const el = document.getElementById('perfil-label');
+  const saudacao = S.nomeAluno ? `Olá, ${S.nomeAluno.split(' ')[0]}` : 'Definir concurso alvo';
+  const txt = S.edital ? (S.nomeAluno ? `${S.nomeAluno.split(' ')[0]} · ${S.edital}` : S.edital) : saudacao;
+  if(el){ el.textContent = txt; el.style.color = S.edital ? 'var(--accent)' : 'var(--text3)'; }
+  // banner no painel
+  const banner = document.getElementById('edital-banner');
+  const bannerTxt = document.getElementById('edital-banner-txt');
+  if(banner && bannerTxt){
+    if(S.edital){
+      banner.style.display='flex';
+      bannerTxt.textContent = `🎯 Concurso alvo: ${S.edital}`;
+    } else {
+      banner.style.display='none';
+    }
+  }
+  // saudação na topbar
+  const date = document.getElementById('topbar-date');
+  if(date){
+    const d = new Date();
+    const hora = d.getHours();
+    const periodo = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+    date.textContent = S.nomeAluno ? `${periodo}, ${S.nomeAluno.split(' ')[0]}!` : d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  }
+}
+
 // ── INIT ───────────────────────────────────────────
 renderMaterias();
 renderCrono();
+renderCronoMobile();
 renderSims();
 updateAll();
+checkOnboarding();
+updateRevBadge();
+updatePerfil();
+pedirNotificacoes();
 </script>
 
 <script>
