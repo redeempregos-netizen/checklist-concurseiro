@@ -631,7 +631,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
           </div>
         </div>
 
-        <div id="painel-dual-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div id="painel-rev-badge" style="display:none;align-items:center;gap:12px;
+  background:var(--red-dim);border:1px solid rgba(245,101,101,0.2);border-radius:12px;
+  padding:14px 18px;margin-bottom:14px;cursor:pointer;"
+  onclick="showTab('revisao', document.querySelector('.nav-item[onclick*=revisao]'))">
+  <span style="font-size:22px">🔴</span>
+  <div style="flex:1;">
+    <div style="font-size:13px;font-weight:700;color:var(--red);">Revisões pendentes!</div>
+    <div style="font-size:12px;color:var(--text3);">Você tem <strong class="prb-num" style="color:var(--red)">0</strong> tópicos para revisar hoje</div>
+  </div>
+  <span style="font-size:12px;color:var(--red);font-weight:600;">Ver →</span>
+</div>
+<div id="painel-dual-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
           <div class="card">
             <div class="section-head">
               <h2>Progresso por área</h2>
@@ -795,11 +806,13 @@ let S = {
   done:  {},
   hoje: null,
   customTopicos: {},
-  customAreas:   []
+  customAreas:   [],
+  revisoes:      {}  // { key: { ciclo:0, proxima:'YYYY-MM-DD', historico:[] } }
 };
 try{ S = {...S, ...JSON.parse(localStorage.getItem('cc_v2')||'{}')}; }catch(e){}
 if(!S.customTopicos) S.customTopicos={};
 if(!S.customAreas)   S.customAreas=[];
+if(!S.revisoes)      S.revisoes={};
 const save = () => localStorage.setItem('cc_v2', JSON.stringify(S));
 
 // Retorna lista completa de areas (base + custom)
@@ -997,6 +1010,15 @@ function toggleCheck(key, el){
   S.check[key]=!S.check[key];
   el.classList.toggle('done',S.check[key]);
   el.querySelector('input').checked=S.check[key];
+  // Inicia ciclo de revisão ao marcar como estudado
+  if(S.check[key] && !S.revisoes[key]){
+    const hoje=new Date().toISOString().slice(0,10);
+    const proxima=addDays(hoje, CICLOS_DIAS[0]);
+    S.revisoes[key]={ciclo:0, proxima, historico:[hoje]};
+  } else if(!S.check[key]){
+    // Desmarcou: remove revisão
+    delete S.revisoes[key];
+  }
   save(); updateAll();
 }
 
@@ -1042,6 +1064,21 @@ function updateAll(){
   }).join('');
 
   renderHoje();
+  updateRevisaoBadgePainel();
+}
+
+function updateRevisaoBadgePainel(){
+  const hoje = new Date().toISOString().slice(0,10);
+  const pendentes = Object.entries(S.revisoes||{})
+    .filter(([k,v]) => v.proxima && v.proxima <= hoje && v.ciclo < CICLOS_DIAS.length).length;
+  const el = document.getElementById('painel-rev-badge');
+  if(!el) return;
+  if(pendentes > 0){
+    el.style.display='flex';
+    el.querySelector('.prb-num').textContent = pendentes;
+  } else {
+    el.style.display='none';
+  }
 }
 
 // ── HOJE ───────────────────────────────────────────
@@ -1179,29 +1216,157 @@ function addSimulado(){
 function delSim(i){S.sims.splice(i,1);save();renderSims();updateAll();}
 
 // ── REVISÃO ────────────────────────────────────────
+const CICLOS_DIAS = [1, 7, 21, 30];  // intervalos em dias
+
+function addDays(dateStr, days){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0,10);
+}
+
+function diffDays(dateStr){
+  const hoje = new Date().toISOString().slice(0,10);
+  const a = new Date(hoje + 'T00:00:00');
+  const b = new Date(dateStr + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
+function formatDate(dateStr){
+  const [y,m,d] = dateStr.split('-');
+  return `${d}/${m}`;
+}
+
+function concluirRevisao(key){
+  const rev = S.revisoes[key];
+  if(!rev) return;
+  const hoje = new Date().toISOString().slice(0,10);
+  rev.historico.push(hoje);
+  const proximoCiclo = rev.ciclo + 1;
+  if(proximoCiclo >= CICLOS_DIAS.length){
+    // Completou todos os ciclos!
+    rev.ciclo = CICLOS_DIAS.length; // marca como concluído
+    rev.proxima = null;
+  } else {
+    rev.ciclo = proximoCiclo;
+    rev.proxima = addDays(hoje, CICLOS_DIAS[proximoCiclo]);
+  }
+  save();
+  renderRevisao();
+}
+
 function renderRevisao(){
-  const lista=document.getElementById('rev-lista');
-  const items=getAllAreas().flatMap(a=>a.topicos.map((t,i)=>({t,key:a.nome+i,area:a.nome})))
-    .filter(x=>S.check[x.key]);
+  const lista = document.getElementById('rev-lista');
+  const hoje = new Date().toISOString().slice(0,10);
+
+  // Pega todos os tópicos estudados com revisão ativa
+  const items = getAllAreas()
+    .flatMap(a => a.topicos.map((t,i) => ({t, key:a.nome+i, area:a.nome, cor:a.cor})))
+    .filter(x => S.check[x.key])
+    .map(x => {
+      // Migra tópicos marcados antes dessa feature
+      if(!S.revisoes[x.key]){
+        S.revisoes[x.key] = {ciclo:0, proxima:addDays(hoje,1), historico:[hoje]};
+        save();
+      }
+      return {...x, rev: S.revisoes[x.key]};
+    });
+
   if(!items.length){
     lista.innerHTML='<div class="empty">Marque tópicos como estudados para gerar revisões.</div>';
     return;
   }
-  const ciclos=[
-    {label:'Revisão 1 dia',cls:'rev-c1'},
-    {label:'Revisão 7 dias',cls:'rev-c2'},
-    {label:'Revisão 21 dias',cls:'rev-c3'},
-    {label:'Revisão 30 dias',cls:'rev-c4'},
-  ];
-  lista.innerHTML=items.slice(0,16).map((x,idx)=>{
-    const c=ciclos[idx%4];
-    return `<div class="rev-item">
-      <span class="rev-ciclo ${c.cls}">${c.label}</span>
+
+  // Separa: atrasadas/hoje, futuras, concluídas
+  const atrasadas = items.filter(x => x.rev.proxima && x.rev.proxima <= hoje);
+  const futuras   = items.filter(x => x.rev.proxima && x.rev.proxima > hoje);
+  const concluidas= items.filter(x => x.rev.ciclo >= CICLOS_DIAS.length);
+
+  // Ordena futuras por data
+  futuras.sort((a,b) => a.rev.proxima.localeCompare(b.rev.proxima));
+
+  const NOMES_CICLO = ['1ª revisão','2ª revisão','3ª revisão','4ª revisão'];
+  const CLS_CICLO   = ['rev-c1','rev-c2','rev-c3','rev-c4'];
+
+  function renderItem(x){
+    const rev = x.rev;
+    const cicloIdx = Math.min(rev.ciclo, CICLOS_DIAS.length-1);
+    const diff = rev.proxima ? diffDays(rev.proxima) : null;
+    const concluida = rev.ciclo >= CICLOS_DIAS.length;
+
+    let statusTxt, statusCor;
+    if(concluida){
+      statusTxt = '✓ Ciclo completo';
+      statusCor = 'var(--accent)';
+    } else if(diff < 0){
+      statusTxt = `${Math.abs(diff)}d atrasada`;
+      statusCor = 'var(--red)';
+    } else if(diff === 0){
+      statusTxt = 'Hoje!';
+      statusCor = 'var(--amber)';
+    } else {
+      statusTxt = `em ${formatDate(rev.proxima)}`;
+      statusCor = 'var(--text3)';
+    }
+
+    return `<div class="rev-item" style="${concluida?'opacity:.5':''}">
+      <span class="rev-ciclo ${concluida?'rev-c4':CLS_CICLO[cicloIdx]}">${concluida?'Concluído':NOMES_CICLO[cicloIdx]}</span>
       <span class="rev-nome">${x.t}</span>
-      <span class="rev-area">${x.area.split(' ')[1]||x.area}</span>
-      <input type="checkbox" class="rev-check" title="Marcar revisão concluída">
+      <span class="rev-area" style="color:${x.cor}">${x.area.split(' ').slice(0,2).join(' ')}</span>
+      <span style="font-size:11px;font-weight:700;color:${statusCor};flex-shrink:0;">${statusTxt}</span>
+      ${!concluida ? `<button onclick="concluirRevisao('${x.key}')" style="
+        background:var(--accent-dim);border:1px solid rgba(0,214,143,0.25);
+        color:var(--accent);font-size:11px;font-weight:700;
+        padding:4px 10px;border-radius:6px;cursor:pointer;
+        font-family:inherit;white-space:nowrap;flex-shrink:0;
+        transition:background .15s;
+      " onmouseover="this.style.background='var(--accent)';this.style.color='#000'"
+         onmouseout="this.style.background='var(--accent-dim)';this.style.color='var(--accent)'">
+        Feita ✓
+      </button>` : ''}
     </div>`;
-  }).join('');
+  }
+
+  let html = '';
+
+  if(atrasadas.length){
+    html += `<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+      color:var(--red);margin-bottom:8px;margin-top:4px;">
+      🔴 Pendentes (${atrasadas.length})
+    </div>`;
+    html += atrasadas.map(renderItem).join('');
+  }
+
+  if(futuras.length){
+    html += `<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+      color:var(--text3);margin-bottom:8px;margin-top:${atrasadas.length?'16px':'4px'};">
+      📅 Próximas (${futuras.length})
+    </div>`;
+    html += futuras.slice(0,20).map(renderItem).join('');
+  }
+
+  if(concluidas.length){
+    html += `<div style="font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+      color:var(--accent);margin-bottom:8px;margin-top:16px;">
+      ✅ Ciclo completo (${concluidas.length})
+    </div>`;
+    html += concluidas.map(renderItem).join('');
+  }
+
+  lista.innerHTML = html;
+
+  // Atualiza badge da sidebar se tiver pendentes hoje
+  const pendentesHoje = atrasadas.length;
+  const bnItem = document.querySelector('.nav-item[onclick*="revisao"]');
+  if(bnItem){
+    let badge = bnItem.querySelector('.nav-badge');
+    if(pendentesHoje > 0){
+      if(!badge){ badge = document.createElement('span'); badge.className='nav-badge'; bnItem.appendChild(badge); }
+      badge.textContent = pendentesHoje;
+      badge.style.background = 'var(--red)';
+    } else if(badge){
+      badge.remove();
+    }
+  }
 }
 
 // ── METAS ──────────────────────────────────────────
