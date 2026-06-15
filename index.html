@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Checklist do Concurseiro Aprovado</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0f1117">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -114,7 +117,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 .hoje-prog-wrap{height:4px;background:var(--bg4);border-radius:100px;overflow:hidden;margin-bottom:12px;}
 .hoje-prog-bar{height:100%;background:var(--accent);border-radius:100px;transition:width .4s;}
 .chips-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
-.chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:100px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid var(--border2);color:var(--text3);background:var(--bg3);transition:all .15s;}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:100px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid var(--border2);color:var(--text3);background:var(--bg3);transition:all .15s;white-space:nowrap;}
 .chip.active{border-width:1px;}
 .hoje-divider{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;padding-top:12px;border-top:1px solid var(--border);}
 
@@ -242,8 +245,9 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:var(--
 /* ── BOTTOM NAV ── */
 .bottom-nav{
   display:none;position:fixed;bottom:0;left:0;right:0;
-  background:var(--bg2);border-top:1px solid var(--border);z-index:100;
+  background:var(--bg2);border-top:1px solid var(--border);z-index:999;
   padding-bottom:var(--safe-bottom);
+  -webkit-backdrop-filter:blur(0);
 }
 .bn-inner{display:flex;height:var(--bn-h);}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text3);font-size:10px;font-weight:600;border:none;background:none;font-family:inherit;position:relative;transition:color .15s;}
